@@ -2,13 +2,17 @@
 from utils import *
 
 
+reverse_cols = '987654321'
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
-square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI')
+                for cs in ('123', '456', '789')]
 unitlist = row_units + column_units + square_units
 
 # TODO: Update the unit list to add the new diagonal units
-unitlist = unitlist
+unitlist = unitlist + \
+    [[x+y for x, y in zip(rows, cols)]] + \
+    [[x+y for x, y in zip(rows, reverse_cols)]]
 
 
 # Must be called after all units (including diagonals) are added to the unitlist
@@ -53,8 +57,16 @@ def naked_twins(values):
     Pseudocode for this algorithm on github:
     https://github.com/udacity/artificial-intelligence/blob/master/Projects/1_Sudoku/pseudocode.md
     """
-    # TODO: Implement this function!
-    raise NotImplementedError
+    new_values = dict(values)
+    for box in boxes:
+        if len(new_values[box]) == 2:
+            for peer in peers[box]:
+                if len(new_values[peer]) == 2 and new_values[box] == new_values[peer]:
+                    for intersect in peers[box].intersection(peers[peer]):
+                        for digit in new_values[box]:
+                            new_values[intersect] = new_values[intersect].replace(
+                                digit, "")
+    return new_values
 
 
 def eliminate(values):
@@ -73,8 +85,10 @@ def eliminate(values):
     dict
         The values dictionary with the assigned values eliminated from peers
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    for box in (box for box in boxes if len(values[box]) == 1):
+        for peer in peers[box]:
+            values[peer] = values[peer].replace(values[box], "")
+    return values
 
 
 def only_choice(values):
@@ -97,8 +111,12 @@ def only_choice(values):
     -----
     You should be able to complete this function by copying your code from the classroom
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    for unit in unitlist:
+        for digit in '123456789':
+            places = [box for box in unit if digit in values[box]]
+            if len(places) == 1:
+                values[places[0]] == digit
+    return values
 
 
 def reduce_puzzle(values):
@@ -113,10 +131,25 @@ def reduce_puzzle(values):
     -------
     dict or False
         The values dictionary after continued application of the constraint strategies
-        no longer produces any changes, or False if the puzzle is unsolvable 
+        no longer produces any changes, or False if the puzzle is unsolvable
     """
-    # TODO: Copy your code from the classroom and modify it to complete this function
-    raise NotImplementedError
+    finish = False
+    while not finish:
+        if all(len(values[box]) == 1 for box in boxes):
+            return values
+
+        unsolved = len([box for box in boxes if len(values[box]) > 1])
+
+        values = eliminate(values)
+        values = only_choice(values)
+
+        if unsolved == len([box for box in boxes if len(values[box]) > 1]):
+            finish = True
+
+        if len([box for box in values.keys() if len(values[box]) == 0]):
+            return False
+
+    return values
 
 
 def search(values):
@@ -138,8 +171,22 @@ def search(values):
     You should be able to complete this function by copying your code from the classroom
     and extending it to call the naked twins strategy.
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    values = reduce_puzzle(values)
+
+    if values == False:
+        return False
+    if all(len(values[box]) == 1 for box in boxes):
+        return values
+    values = naked_twins(values)
+    _, q = min((len(values[box]), box)
+               for box in boxes if len(values[box]) > 1)
+
+    for i in values[q]:
+        new_values = dict(values)
+        new_values[q] = i
+        result = search(new_values)
+        if result:
+            return result
 
 
 def solve(grid):
@@ -149,7 +196,7 @@ def solve(grid):
     ----------
     grid(string)
         a string representing a sudoku grid.
-        
+
         Ex. '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
 
     Returns
